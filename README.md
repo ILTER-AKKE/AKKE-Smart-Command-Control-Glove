@@ -4,10 +4,10 @@ Bu belge, 5 adet flex sensör, 1 adet MPU6050, 1 adet RGB LED ve 1 adet buton ku
 
 ## Gestures
 1. Stop 
-2. Go go  
+2. Listen (1)
 3. Come 
 4. Stick together 
-5. Listen (1) 
+5. Go go
 6. Slow down (2) 
 7. Fall back- Geri çekil (3) 
 8. Take cover- siper al (4) 
