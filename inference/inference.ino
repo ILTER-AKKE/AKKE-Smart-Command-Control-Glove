@@ -2,7 +2,7 @@
 #include <Kalman.h>
 #include <WiFi.h>
 #include <esp_now.h>
-#include <omedee_inferencing.h>
+#include <ILTER-AKKE_1.3.2_inferencing.h>
 #include <esp_idf_version.h>
 
 // ==================== PIN DEFINITIONS ====================
@@ -148,27 +148,22 @@ void initEspNowSender() {
 // Burada kendi model label isimlerine gore eslestirme yapiyoruz.
 // Asagida birden fazla olasi isim ekledim. Gerekiyorsa sadeleştiririz.
 uint8_t labelToCommand(const char* label) {
-  if (strcmp(label, "hareket_1") == 0 || strcmp(label, "Hareket_1") == 0 || strcmp(label, "stop") == 0 || strcmp(label, "Stop") == 0) {
-    return 1;
-  }
-  if (strcmp(label, "hareket_2") == 0 || strcmp(label, "Hareket_2") == 0 || strcmp(label, "hurry_up") == 0 || strcmp(label, "Hurry_up") == 0 || strcmp(label, "Hurry up") == 0) {
-    return 2;
-  }
-  if (strcmp(label, "hareket_3") == 0 || strcmp(label, "Hareket_3") == 0 || strcmp(label, "go_go") == 0 || strcmp(label, "Go_go") == 0 || strcmp(label, "Go go") == 0) {
-    return 3;
-  }
-  if (strcmp(label, "hareket_4") == 0 || strcmp(label, "Hareket_4") == 0 || strcmp(label, "come") == 0 || strcmp(label, "Come") == 0) {
-    return 4;
-  }
-  if (strcmp(label, "hareket_5") == 0 || strcmp(label, "Hareket_5") == 0 || strcmp(label, "stick_together") == 0 || strcmp(label, "Stick_together") == 0 || strcmp(label, "Stick together") == 0) {
-    return 5;
-  }
+  if (strcmp(label, "hareket_1") == 0 || strcmp(label, "Hareket_1") == 0 || strcmp(label, "stop") == 0 || strcmp(label, "Stop") == 0) return 1;
+  if (strcmp(label, "hareket_2") == 0 || strcmp(label, "Hareket_2") == 0 || strcmp(label, "listen") == 0 || strcmp(label, "Listen") == 0) return 2;
+  if (strcmp(label, "hareket_3") == 0 || strcmp(label, "Hareket_3") == 0 || strcmp(label, "come") == 0 || strcmp(label, "Come") == 0) return 3;
+  if (strcmp(label, "hareket_4") == 0 || strcmp(label, "Hareket_4") == 0 || strcmp(label, "stick_together") == 0 || strcmp(label, "Stick_together") == 0 || strcmp(label, "Stick together") == 0) return 4;
+  if (strcmp(label, "hareket_5") == 0 || strcmp(label, "Hareket_5") == 0 || strcmp(label, "go_go") == 0 || strcmp(label, "Go_go") == 0 || strcmp(label, "Go go") == 0) return 5;
+  if (strcmp(label, "hareket_6") == 0 || strcmp(label, "Hareket_6") == 0 || strcmp(label, "slow_down") == 0 || strcmp(label, "Slow_down") == 0 || strcmp(label, "Slow down") == 0) return 6;
+  if (strcmp(label, "hareket_7") == 0 || strcmp(label, "Hareket_7") == 0 || strcmp(label, "fall_back") == 0 || strcmp(label, "Fall_back") == 0 || strcmp(label, "Fall back") == 0) return 7;
+  if (strcmp(label, "hareket_8") == 0 || strcmp(label, "Hareket_8") == 0 || strcmp(label, "take_cover") == 0 || strcmp(label, "Take_cover") == 0 || strcmp(label, "Take cover") == 0) return 8;
+  if (strcmp(label, "hareket_9") == 0 || strcmp(label, "Hareket_9") == 0 || strcmp(label, "move_right") == 0 || strcmp(label, "Move_right") == 0 || strcmp(label, "Move right") == 0) return 9;
+  if (strcmp(label, "hareket_10") == 0 || strcmp(label, "Hareket_10") == 0 || strcmp(label, "move_left") == 0 || strcmp(label, "Move_left") == 0 || strcmp(label, "Move left") == 0) return 10;
 
   return 0;
 }
 
 void sendCommandToReceiver(uint8_t cmd) {
-  if (cmd < 1 || cmd > 5) {
+  if (cmd < 1 || cmd > 10) {
     Serial.println("Gecersiz komut, gonderilmiyor.");
     return;
   }

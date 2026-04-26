@@ -20,7 +20,7 @@ DFRobotDFPlayerMini myDFPlayer;
 
 // ===================== AYARLAR =====================
 static const uint8_t MIN_CMD = 1;
-static const uint8_t MAX_CMD = 5;
+static const uint8_t MAX_CMD = 10;
 static const unsigned long POT_INTERVAL_MS = 120;
 
 // ESP-NOW veri yapısı
@@ -41,10 +41,15 @@ unsigned long lastPotMillis = 0;
 const char* getCommandText(uint8_t cmd) {
   switch (cmd) {
     case 1: return "Stop";
-    case 2: return "Hurry up";
-    case 3: return "Go go";
-    case 4: return "Come";
-    case 5: return "Stick together";
+    case 2: return "Listen";
+    case 3: return "Come";
+    case 4: return "Stick together";
+    case 5: return "Go go";
+    case 6: return "Slow down";
+    case 7: return "Fall back";
+    case 8: return "Take cover";
+    case 9: return "Move right";
+    case 10: return "Move left";
     default: return "Bekleniyor...";
   }
 }
