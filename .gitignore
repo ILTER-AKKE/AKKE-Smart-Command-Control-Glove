@@ -1,0 +1,4 @@
+data_collection/venv/
+venv/
+__pycache__/
+*.dll
