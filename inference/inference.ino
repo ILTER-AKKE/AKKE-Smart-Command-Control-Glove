@@ -2,7 +2,7 @@
 #include <Kalman.h>
 #include <WiFi.h>
 #include <esp_now.h>
-#include "model.h" // Eğittiğimiz SVM modelini dahil ediyoruz
+#include <ILTER-AKKE_1.3.3_inferencing.h>
 #include <esp_idf_version.h>
 
 // ==================== PIN DEFINITIONS ====================
@@ -62,15 +62,8 @@ State currentState = IDLE;
 unsigned long lastButtonPress = 0;
 bool lastButtonState = HIGH;
 
-// ==================== SVM FEATURE BUFFER ====================
-// SVM yerine DecisionTree kullanıyoruz (model.h'de tanımlı)
-Eloquent::ML::Port::DecisionTree clf;
-
-// Toplanan ham veriler: [13 sensör][50 örnek]
-float raw_data[13][50];
-
-// SVM'in beklediği standardize edilmiş 650 boyutlu düzleştirilmiş vektör (13 x 50)
-float svm_features[650];
+// ==================== Edge Impulse FEATURE BUFFER ====================
+float features[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
 
 // ==================== I2C HELPERS ====================
 uint8_t i2cWrite(uint8_t registerAddress, uint8_t data, bool sendStop) {
@@ -152,21 +145,20 @@ void initEspNowSender() {
   Serial.println("ESP-NOW sender hazir.");
 }
 
-// Model.h'deki etiket isimlerini komut numaralarına eşliyoruz.
-// README'deki 10 hareket karşılıkları:
+// Burada kendi model label isimlerine gore eslestirme yapiyoruz.
+// Asagida birden fazla olasi isim ekledim. Gerekiyorsa sadeleştiririz.
 uint8_t labelToCommand(const char* label) {
-  if (strcmp(label, "stop") == 0)              return 1;  // Dur
-  if (strcmp(label, "hear") == 0)              return 2;  // Dinle
-  if (strcmp(label, "five") == 0)              return 3;  // İleri (Go go)
-  if (strcmp(label, "four") == 0)              return 4;  // Gel (Come)
-  if (strcmp(label, "one") == 0)               return 5;  // Birlikte kal
-  if (strcmp(label, "two") == 0)               return 6;  // Yavaşla
-  if (strcmp(label, "three") == 0)             return 7;  // Geri çekil
-  if (strcmp(label, "enemy") == 0)             return 8;  // Siper al
-  if (strcmp(label, "watch") == 0)             return 9;  // Sağa git
-  if (strcmp(label, "you") == 0)               return 10; // Sola git
-  
-  // Diğer etiketler (28 sınıftan kalan 18'i) komut olarak gönderilmez
+  if (strcmp(label, "hareket_1") == 0 || strcmp(label, "Hareket_1") == 0 || strcmp(label, "stop") == 0 || strcmp(label, "Stop") == 0) return 1;
+  if (strcmp(label, "hareket_2") == 0 || strcmp(label, "Hareket_2") == 0 || strcmp(label, "listen") == 0 || strcmp(label, "Listen") == 0) return 2;
+  if (strcmp(label, "hareket_3") == 0 || strcmp(label, "Hareket_3") == 0 || strcmp(label, "come") == 0 || strcmp(label, "Come") == 0) return 3;
+  if (strcmp(label, "hareket_4") == 0 || strcmp(label, "Hareket_4") == 0 || strcmp(label, "stick_together") == 0 || strcmp(label, "Stick_together") == 0 || strcmp(label, "Stick together") == 0) return 4;
+  if (strcmp(label, "hareket_5") == 0 || strcmp(label, "Hareket_5") == 0 || strcmp(label, "go_go") == 0 || strcmp(label, "Go_go") == 0 || strcmp(label, "Go go") == 0) return 5;
+  if (strcmp(label, "hareket_6") == 0 || strcmp(label, "Hareket_6") == 0 || strcmp(label, "slow_down") == 0 || strcmp(label, "Slow_down") == 0 || strcmp(label, "Slow down") == 0) return 6;
+  if (strcmp(label, "hareket_7") == 0 || strcmp(label, "Hareket_7") == 0 || strcmp(label, "fall_back") == 0 || strcmp(label, "Fall_back") == 0 || strcmp(label, "Fall back") == 0) return 7;
+  if (strcmp(label, "hareket_8") == 0 || strcmp(label, "Hareket_8") == 0 || strcmp(label, "take_cover") == 0 || strcmp(label, "Take_cover") == 0 || strcmp(label, "Take cover") == 0) return 8;
+  if (strcmp(label, "hareket_9") == 0 || strcmp(label, "Hareket_9") == 0 || strcmp(label, "move_right") == 0 || strcmp(label, "Move_right") == 0 || strcmp(label, "Move right") == 0) return 9;
+  if (strcmp(label, "hareket_10") == 0 || strcmp(label, "Hareket_10") == 0 || strcmp(label, "move_left") == 0 || strcmp(label, "Move_left") == 0 || strcmp(label, "Move left") == 0) return 10;
+
   return 0;
 }
 
@@ -217,6 +209,14 @@ void setup() {
   while (i2cWrite(0x19, i2cData, 4, false));
   while (i2cWrite(0x6B, 0x01, true));
   delay(100);
+
+  Serial.println("========== EI SINIFLANDIRICI SABITLERI ==========");
+  Serial.print("EI_CLASSIFIER_FREQUENCY            : "); Serial.println(EI_CLASSIFIER_FREQUENCY);
+  Serial.print("EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE : "); Serial.println(EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+  Serial.print("EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME: "); Serial.println(EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
+  Serial.print("EI_CLASSIFIER_RAW_SAMPLE_COUNT     : "); Serial.println(EI_CLASSIFIER_RAW_SAMPLE_COUNT);
+  Serial.print("EI_CLASSIFIER_LABEL_COUNT          : "); Serial.println(EI_CLASSIFIER_LABEL_COUNT);
+  Serial.println("=================================================");
 
   Serial.println("MSG: Sistem baslatildi. Kalibrasyon icin butona basin.");
   setLED(0, 0, 1); // Mavi → IDLE
@@ -299,9 +299,9 @@ void performInference() {
   Serial.println("MSG: HAREKETI YAPIN! (Veri toplaniyor...)");
   setLED(0, 1, 1); // Cyan
 
-  const int num_sensors        = 13; // 5 Flex + 2 Kalman + 6 IMU
-  const int num_readings       = 50; // Eğitildiği gibi sabit 50 okuma alıyoruz
-  const uint32_t sample_interval_ms = 60; // 50 * 60 = 3000ms (3 Saniyelik süreç)
+  const int num_sensors        = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
+  const int num_readings       = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+  const uint32_t sample_interval_ms = (uint32_t)(1000.0f / EI_CLASSIFIER_FREQUENCY);
 
   Serial.print("MSG: Toplanacak ornek sayisi: "); Serial.println(num_readings);
   Serial.print("MSG: Ornek araligi (ms): ");      Serial.println(sample_interval_ms);
@@ -346,20 +346,19 @@ void performInference() {
     float f_gy = gyroY - gyro_offset[1];
     float f_gz = gyroZ - gyro_offset[2];
 
-    // Okunan değerleri sırayla 13 sensörün satırına kaydediyoruz
-    raw_data[0][ix] = flex_norm[0];
-    raw_data[1][ix] = flex_norm[1];
-    raw_data[2][ix] = flex_norm[2];
-    raw_data[3][ix] = flex_norm[3];
-    raw_data[4][ix] = flex_norm[4];
-    raw_data[5][ix] = kalPitch;
-    raw_data[6][ix] = kalRoll;
-    raw_data[7][ix] = f_ax;
-    raw_data[8][ix] = f_ay;
-    raw_data[9][ix] = f_az;
-    raw_data[10][ix] = f_gx;
-    raw_data[11][ix] = f_gy;
-    raw_data[12][ix] = f_gz;
+    features[ix * num_sensors + 0]  = flex_norm[0];
+    features[ix * num_sensors + 1]  = flex_norm[1];
+    features[ix * num_sensors + 2]  = flex_norm[2];
+    features[ix * num_sensors + 3]  = flex_norm[3];
+    features[ix * num_sensors + 4]  = flex_norm[4];
+    features[ix * num_sensors + 5]  = kalPitch;
+    features[ix * num_sensors + 6]  = kalRoll;
+    features[ix * num_sensors + 7]  = f_ax;
+    features[ix * num_sensors + 8]  = f_ay;
+    features[ix * num_sensors + 9]  = f_az;
+    features[ix * num_sensors + 10] = f_gx;
+    features[ix * num_sensors + 11] = f_gy;
+    features[ix * num_sensors + 12] = f_gz;
 
     unsigned long elapsed = millis() - loopStart;
     if (elapsed < sample_interval_ms) {
@@ -367,46 +366,69 @@ void performInference() {
     }
   }
 
-  // ==================== Z-SCORE NORMALİZASYONU VE FLATTEN ====================
-  // Eğittiğimiz Python kodundaki gibi değerleri burada standartlaştırıyoruz
-  for (int s = 0; s < num_sensors; s++) {
-    float sum = 0;
-    for (int i = 0; i < num_readings; i++) sum += raw_data[s][i];
-    float mean = sum / num_readings;
+  // ==================== INFERENCE ====================
+  Serial.println("MSG: Model calistiriliyor...");
 
-    float sq_sum = 0;
-    for (int i = 0; i < num_readings; i++) sq_sum += (raw_data[s][i] - mean) * (raw_data[s][i] - mean);
-    float stddev = sqrt(sq_sum / num_readings);
-    
-    if (stddev < 0.0001f) stddev = 1.0f; // Sıfıra bölme hatasını önlemek için
-
-    // Vektörü tek boyutlu(650 array) haline getirerek doğrudan yazdırıyoruz
-    for (int i = 0; i < num_readings; i++) {
-      svm_features[s * num_readings + i] = (raw_data[s][i] - mean) / stddev;
-    }
+  signal_t signal;
+  int err = numpy::signal_from_buffer(features, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
+  if (err != 0) {
+    ei_printf("HATA: Sinyal olusturulamadi (kod: %d)\n", err);
+    setLED(1, 0, 0);
+    return;
   }
 
-  // ==================== INFERENCE (SVM) ====================
-  Serial.println("MSG: SVM Modeli calistiriliyor...");
-  
-  // "model.h" ile doğrudan sonucu string ("one", "enemy" vb.) olarak alıyoruz
-  const char* best_label = clf.predictLabel(svm_features);
+  ei_impulse_result_t result = {0};
+  err = run_classifier(&signal, &result, false);
+  if (err != EI_IMPULSE_OK) {
+    ei_printf("HATA: Model cikarim hatasi (kod: %d)\n", err);
+    setLED(1, 0, 0);
+    return;
+  }
 
   // ==================== SONUÇLARI YAZDIR ====================
   Serial.println("\n=========================================");
+  Serial.println("TAHMIN SONUCLARI:");
+
+  float max_score  = 0.0f;
+  const char* best_label = "?";
+
+  for (uint16_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++) {
+    Serial.print("  ");
+    Serial.print(result.classification[i].label);
+    Serial.print(": %");
+    Serial.println(result.classification[i].value * 100.0f, 2);
+
+    if (result.classification[i].value > max_score) {
+      max_score  = result.classification[i].value;
+      best_label = result.classification[i].label;
+    }
+  }
+
+  Serial.println("-----------------------------------------");
   Serial.print(">>> KARAR: ");
   Serial.print(best_label);
-  Serial.println(" <<<");
+  Serial.print("  (Guven: %");
+  Serial.print(max_score * 100.0f, 2);
+  Serial.println(") <<<");
   Serial.println("=========================================\n");
 
-  setLED(0, 1, 0); // Yeşil → başarılı tanıma
+  // Güven eşiği kontrolü (%75)
+  if (max_score >= 0.75f) {
+    setLED(0, 1, 0); // Yeşil → başarılı tanıma
 
-  uint8_t cmd = labelToCommand(best_label);
+    uint8_t cmd = labelToCommand(best_label);
 
-  if (cmd != 0) {
-    sendCommandToReceiver(cmd);
+    if (cmd != 0) {
+      sendCommandToReceiver(cmd);
+    } else {
+      Serial.println("UYARI: Label komuta cevrilemedi, gonderim yapilmadi.");
+    }
+
   } else {
-    Serial.println("UYARI: Label komuta cevrilemedi, gonderim yapilmadi.");
+    Serial.println("UYARI: Guven esigi altinda (%75), sonuc gecersiz!");
+    setLED(1, 0, 0); // Kirmizi → düşük güven
+    delay(1000);
+    setLED(0, 1, 0);
   }
 }
 
