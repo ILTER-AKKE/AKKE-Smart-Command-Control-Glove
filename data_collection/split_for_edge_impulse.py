@@ -35,7 +35,9 @@ def main():
 
         records = {}
         for row in reader:
-            if not row: continue # bos satirlari atla
+            if not row or len(row) < len(header): 
+                continue # bos veya eksik satirlari atla
+            
             rec_id = row[record_id_idx]
             lbl = row[label_idx]
             ts = int(row[timestamp_idx])
