@@ -16,6 +16,7 @@
 #define LED_R_PIN  15
 #define LED_G_PIN  2
 #define LED_B_PIN  0
+#define BATTERY_PIN 39 // SVP pini (SP)
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -61,6 +62,44 @@ State currentState = IDLE;
 // ==================== BUTON DEBOUNCE ====================
 unsigned long lastButtonPress = 0;
 bool lastButtonState = HIGH;
+
+// ==================== BATTERY ====================
+unsigned long lastBatteryMillis = 0;
+const unsigned long BATTERY_INTERVAL_MS = 2000;
+bool isBatteryLowState = false;
+
+void checkBattery() {
+  int raw = analogRead(BATTERY_PIN);
+  float vOut = (raw / 4095.0) * 3.3; // ESP32 ADC referansı ~3.3V
+  
+  // Voltaj bölücü: R1 = 20k, R2 = 10k
+  float vBat = vOut * 3.0;
+
+  float maxVoltage = 9.5;
+  float minVoltage = 6.0;
+
+  int percent = 0;
+  if (vBat >= maxVoltage) {
+    percent = 100;
+  } else if (vBat <= minVoltage) {
+    percent = 0;
+  } else {
+    percent = (int)(((vBat - minVoltage) / (maxVoltage - minVoltage)) * 100.0);
+  }
+
+  // Sorunu görebilmek için Serial Monitor'e voltaj değerlerini yazdıralım
+  Serial.print("Pil Test -> RAW: "); Serial.print(raw);
+  Serial.print(" | vOut (Pin): "); Serial.print(vOut);
+  Serial.print("V | vBat (Gercek): "); Serial.print(vBat);
+  Serial.print("V | Yuzde: %"); Serial.println(percent);
+
+  // Batarya voltajı sınırın altındaysa düşük pil moduna geç
+  if (vBat < minVoltage) {
+    isBatteryLowState = true;
+  } else {
+    isBatteryLowState = false;
+  }
+}
 
 // ==================== Edge Impulse FEATURE BUFFER ====================
 float features[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE];
@@ -219,6 +258,15 @@ void setup() {
   Serial.println("=================================================");
 
   Serial.println("MSG: Sistem baslatildi. Kalibrasyon icin butona basin.");
+  
+  // Booting: Blinking White
+  for (int i = 0; i < 3; i++) {
+    setLED(1, 1, 1);
+    delay(200);
+    setLED(0, 0, 0);
+    delay(200);
+  }
+  
   setLED(0, 0, 1); // Mavi → IDLE
 }
 
@@ -297,7 +345,7 @@ void runCalibration() {
 // ==================== INFERENCE ====================
 void performInference() {
   Serial.println("MSG: HAREKETI YAPIN! (Veri toplaniyor...)");
-  setLED(0, 1, 1); // Cyan
+  setLED(1, 1, 0); // Processing -> Solid Yellow (from image)
 
   const int num_sensors        = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
   const int num_readings       = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
@@ -373,7 +421,7 @@ void performInference() {
   int err = numpy::signal_from_buffer(features, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
   if (err != 0) {
     ei_printf("HATA: Sinyal olusturulamadi (kod: %d)\n", err);
-    setLED(1, 0, 0);
+    for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     return;
   }
 
@@ -381,7 +429,7 @@ void performInference() {
   err = run_classifier(&signal, &result, false);
   if (err != EI_IMPULSE_OK) {
     ei_printf("HATA: Model cikarim hatasi (kod: %d)\n", err);
-    setLED(1, 0, 0);
+    for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     return;
   }
 
@@ -414,40 +462,67 @@ void performInference() {
 
   // Güven eşiği kontrolü (%75)
   if (max_score >= 0.75f) {
-    setLED(0, 1, 0); // Yeşil → başarılı tanıma
-
     uint8_t cmd = labelToCommand(best_label);
 
     if (cmd != 0) {
       sendCommandToReceiver(cmd);
+      // Success -> Blink Green (Once)
+      setLED(0, 1, 0);
+      delay(500);
+      setLED(0, 0, 0);
     } else {
       Serial.println("UYARI: Label komuta cevrilemedi, gonderim yapilmadi.");
+      // Error -> Blink Red (Twice)
+      for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     }
 
   } else {
     Serial.println("UYARI: Guven esigi altinda (%75), sonuc gecersiz!");
-    setLED(1, 0, 0); // Kirmizi → düşük güven
-    delay(1000);
-    setLED(0, 1, 0);
+    // Error / Low Confidence -> Blink Red (Twice)
+    for(int i=0; i<2; i++){
+      setLED(1, 0, 0);
+      delay(200);
+      setLED(0, 0, 0);
+      if(i<1) delay(200);
+    }
   }
 }
 
 // ==================== LOOP ====================
 void loop() {
+  // reciever.ino mantigi ile periyodik pil kontrolu
+  if (millis() - lastBatteryMillis >= BATTERY_INTERVAL_MS) {
+    lastBatteryMillis = millis();
+    //checkBattery();
+  }
+
+  // Low Battery -> Blinking Red (Continuous)
+  if (isBatteryLowState) {
+    if ((millis() / 500) % 2 == 0) {
+      setLED(1, 0, 0);
+    } else {
+      setLED(0, 0, 0);
+    }
+  } else {
+    // Idle / Ready -> Solid Blue
+    if (currentState == IDLE || currentState == READY) {
+      setLED(0, 0, 1);
+    }
+  }
+
   bool btnPressed = isButtonPressed();
 
   switch (currentState) {
     case IDLE:
-      if (btnPressed) {
+      if (btnPressed && !isBatteryLowState) {
         currentState = CALIBRATING;
         runCalibration();
         currentState = READY;
-        setLED(0, 1, 0); // Yesil → READY
       }
       break;
 
     case READY:
-      if (btnPressed) {
+      if (btnPressed && !isBatteryLowState) {
         currentState = INFERENCING;
         performInference();
         currentState = READY;
