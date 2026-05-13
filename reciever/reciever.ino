@@ -46,11 +46,11 @@ const char *getCommandText(uint8_t cmd) {
   case 2:
     return "Listen";
   case 3:
-    return "Come";
-  case 4:
-    return "Stick together";
-  case 5:
     return "Go go";
+  case 4:
+    return "Come";
+  case 5:
+    return "Stick together";
   case 6:
     return "Slow down";
   case 7:
