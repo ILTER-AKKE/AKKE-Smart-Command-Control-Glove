@@ -5,7 +5,7 @@
 🌐 **Languages:** **English** · [Türkçe](README.tr.md)
 
 [![Status](https://img.shields.io/badge/status-active--development-blue)]()
-[![Platform](https://img.shields.io/badge/platform-ESP32--S3-informational)]()
+[![Platform](https://img.shields.io/badge/platform-ESP32--informational)]()
 [![Course](https://img.shields.io/badge/TEDU-CMPE%20491%2F492-red)]()
 
 ---
@@ -25,18 +25,18 @@ The end result: a wearer makes a hand sign, and within ~200 ms the team hears a 
 
 ## Team
 
-| Name | Department | Role |
+| Name | Department |
 |---|---|---|
-| **Berk Çakmak** | Computer Engineering | Project Lead |
-| Abdullah Esin | Computer Engineering (EEE double major) | Software & ML |
-| Ömer Efe Dikici | Computer Engineering | Software & System Integration |
-| Şevval Kurtulmuş | Electrical-Electronics Engineering (CMPE double major) | Hardware & Embedded |
+| Abdullah Esin | Computer Engineering |
+| **Berk Çakmak** | Computer Engineering |
+| Ömer Efe Dikici | Computer Engineering |
+| Şevval Kurtulmuş | Electrical-Electronics Engineering |
 
 **Supervisors:** Ali Berkol, Hüseyin Uğur Yıldız
 **Jury:** Hakkı Gökhan İlk, Mehmet Evren Coşkun
-**Institution:** TED University, Faculty of Engineering — CMPE 491 / 492 Senior Project
+**Institution:** TED University, Faculty of Engineering — CMPE/EEE 491 / 492 Senior Project
 
-**Supported by:** HAVELSAN SUIT Program
+
 
 ---
 
@@ -57,7 +57,7 @@ The current firmware classifies and transmits 10 commands:
 | 9 | Move right | Lateral movement right |
 | 10 | Move left | Lateral movement left |
 
-The roadmap extends this set to 15 (check the area, spread out, get down, area clear, operation over).
+
 
 ---
 
@@ -65,20 +65,20 @@ The roadmap extends this set to 15 (check the area, spread out, get down, area c
 
 ```
 ┌─────────────────── GLOVE UNIT ───────────────────┐         ┌──────────── RECEIVER UNIT ───────────┐
-│                                                  │         │                                       │
-│   5× Flex sensors ──┐                            │         │   ESP32 ──── DFPlayer Mini ─── Speaker│
-│                     ├─► ESP32-S3 ──► TFLite      │ ESP-NOW │     │                                 │
-│   MPU6050 (IMU) ────┘    (Edge Impulse model)    │ ───────►│     ├─── 16×2 I²C LCD (status)       │
-│                                                  │ 2.4 GHz │     ├─── Potentiometer (volume)      │
-│   Button ─► state machine                        │         │     └─── Battery voltage divider     │
-│   RGB LED ─► visual feedback                     │         │                                       │
-│                                                  │         │                                       │
-└──────────────────────────────────────────────────┘         └───────────────────────────────────────┘
+│                                                  │         │                                      │
+│   5× Flex sensors ──┐                            │         │  ESP32 ──── DFPlayer Mini ─── Speaker│
+│                     ├─► ESP32 ──► TFLite         │ ESP-NOW │    │                                 │
+│   MPU6050 (IMU) ────┘    (Edge Impulse model)    │ ───────►│    ├─── 16×2 I²C LCD (status)        │
+│                                                  │ 2.4 GHz │    ├─── Potentiometer (volume)       │
+│   Button ─► state machine                        │         │    └─── Battery voltage divider      │
+│   RGB LED ─► visual feedback                     │         │                                      │
+│                                                  │         │                                      │
+└──────────────────────────────────────────────────┘         └──────────────────────────────────────┘
 ```
 
 ### Data flow
 
-1. The wearer holds a hand pose for ~3 seconds (sample window controlled by the Edge Impulse impulse settings).
+1. The wearer does a movement for ~3 seconds (sample window controlled by the Edge Impulse impulse settings).
 2. The glove samples 13 features per timestep: 5 normalized flex values, Kalman-filtered pitch and roll, 3-axis accelerometer (calibrated), 3-axis gyroscope (calibrated).
 3. The TFLite Micro classifier runs on-device and outputs a label with a confidence score.
 4. If confidence ≥ 75 %, the label is mapped to a command ID (1–10) and broadcast over ESP-NOW.
@@ -91,15 +91,15 @@ The roadmap extends this set to 15 (check the area, spread out, get down, area c
 ### Glove unit
 | Component | Purpose | Pin / Bus |
 |---|---|---|
-| ESP32-S3 DevKit | Main MCU, on-device inference | — |
+| ESP32 DevKit | Main MCU, on-device inference | — |
 | 5× flex sensors | Finger bend (voltage divider) | GPIO 25, 33, 32, 35, 34 |
 | MPU6050 | 3-axis accel + 3-axis gyro | I²C: SDA=21, SCL=22 |
 | Push button | State transitions | GPIO 13 (INPUT_PULLUP) |
 | RGB LED | Visual feedback | R=15, G=2, B=0 |
 | Battery monitor | Voltage divider (R1=20 k, R2=10 k) | GPIO 39 |
-| Li-Po + TP4056 + HT7333 | Power chain | — |
+| 9V alkaline battery | Power source | — |
 
-> ⚠️ **GPIO 0 caveat:** the blue channel uses GPIO 0, which is the ESP32 boot-mode select pin. Keep the LED OFF at boot (or pull it up) to avoid forcing the chip into download mode.
+
 
 ### Receiver unit
 | Component | Purpose | Pin / Bus |
@@ -148,7 +148,8 @@ The roadmap extends this set to 15 (check the area, spread out, get down, area c
 - **Confidence gating:** predictions below 75 % are discarded
 - **Calibration:** per-session normalization for flex sensors + IMU offset estimation (no model retraining needed between users)
 
-> **Note on the feature design:** the firmware feeds raw windowed time-series features directly to Edge Impulse, which performs its own DSP block (spectral analysis on the IMU channels). This replaces the earlier statistical-features approach (88 features = 11 channels × 8 statistics) and lets Edge Impulse choose the optimal extractor.
+
+
 
 ---
 
@@ -190,7 +191,7 @@ Round-trip latency from gesture-end to audio playback is typically under 300 ms.
 │   └── ei-ilter-akke_1.3.3-arduino-1.0.5-impulse.zip   # exported Edge Impulse Arduino lib
 │
 ├── inference/
-│   └── inference.ino                      # glove-side firmware (ESP32-S3)
+│   └── inference.ino                      # glove-side firmware (ESP32)
 │
 └── reciever/
     └── reciever.ino                       # receiver-side firmware (ESP32 + DFPlayer)
@@ -224,7 +225,7 @@ Round-trip latency from gesture-end to audio playback is typically under 300 ms.
 1. **Prepare the SD card:** create a `mp3` folder on the DFPlayer's microSD and add `0001.mp3` … `0010.mp3` corresponding to the 10 commands.
 2. **Flash the receiver** (`reciever.ino`) on the receiver ESP32 first.
 3. **Read its MAC address** from the serial monitor at 115200 baud and paste it into `receiverMAC[]` in `inference.ino`.
-4. **Flash the glove** (`inference.ino`) on the ESP32-S3.
+4. **Flash the glove** (`inference.ino`) on the ESP32.
 5. **Power on both units**, wait for the boot sequence, then press the button on the glove to start calibration.
 
 ---
@@ -233,7 +234,7 @@ Round-trip latency from gesture-end to audio playback is typically under 300 ms.
 
 The model that ships in `inference.ino` was trained on data collected with the scripts in `data_collection/`. To extend the gesture set or retrain on a new wearer:
 
-1. **Flash the data-collection firmware:** open `data_collection/data_collection.ino`, flash it to the glove ESP32-S3.
+1. **Flash the data-collection firmware:** open `data_collection/data_collection.ino`, flash it to the glove ESP32.
 2. **Run the host collector:** plug the glove into a computer and run
    ```bash
    python data_collection/data_collector.py
@@ -264,15 +265,7 @@ The model that ships in `inference.ino` was trained on data collected with the s
 
 ---
 
-## Known Issues / TODO
 
-- Receiver firmware has non-UTF-8 byte sequences in `Serial.println` calls (originally emoji); these print as garbage. Strip or re-encode.
-- `getBatteryPercentage()` is used inside `updateLCD()` before its declaration — works because of Arduino's auto-prototype generation but should be forward-declared explicitly for portability.
-- `BUTTON_PIN = 13` and `BATTERY_PIN = 39` can both be sensitive on ESP32-S3; verify pin map against your specific dev board revision.
-- Battery percentage curve is linearized in 5 % steps; consider a non-linear LUT mapped to actual Li-Po discharge curve.
-- `checkBattery()` on the glove is currently commented out in `loop()`.
-
----
 
 ## Roadmap
 
@@ -286,16 +279,11 @@ The model that ships in `inference.ino` was trained on data collected with the s
 
 ## Acknowledgments
 
-- **HAVELSAN SUIT Program** — for mentorship and technical support
-- **TED University Faculty of Engineering** — capstone supervision and lab facilities
+- **TED University Faculty of Engineering** — capstone supervision 
 - Edge Impulse, Espressif, and the open-source embedded community
 
 ---
 
-## License
 
-To be defined. See `LICENSE` (pending).
-
----
 
 <sub>AKKE © 2025–2026 — CMPE 491/492 Capstone Project, TED University</sub>

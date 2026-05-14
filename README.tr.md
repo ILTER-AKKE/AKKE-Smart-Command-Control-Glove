@@ -25,18 +25,18 @@ Sonuç: kullanıcı bir el işareti yapar ve yaklaşık 200 ms içinde ekip, kim
 
 ## Ekip
 
-| İsim | Bölüm | Rol |
-|---|---|---|
-| **Berk Çakmak** | Bilgisayar Mühendisliği | Proje Lideri |
-| Abdullah Esin | Bilgisayar Mühendisliği (EEE çift anadal) | Yazılım & ML |
-| Ömer Efe Dikici | Bilgisayar Mühendisliği | Yazılım & Sistem Entegrasyonu |
-| Şevval Kurtulmuş | Elektrik-Elektronik Mühendisliği (CMPE çift anadal) | Donanım & Gömülü Yazılım |
+| İsim | Bölüm |
+|---|---|
+| Abdullah Esin | Bilgisayar Mühendisliği |
+| Berk Çakmak | Bilgisayar Mühendisliği |
+| Ömer Efe Dikici | Bilgisayar Mühendisliği |
+| Şevval Kurtulmuş | Elektrik-Elektronik Mühendisliği |
 
 **Danışmanlar:** Ali Berkol, Hüseyin Uğur Yıldız
 **Jüri:** Hakkı Gökhan İlk, Mehmet Evren Coşkun
-**Kurum:** TED Üniversitesi, Mühendislik Fakültesi — CMPE 491 / 492 Bitirme Projesi
+**Kurum:** TED Üniversitesi, Mühendislik Fakültesi — CMPE/EEE 491 / 492 Bitirme Projesi
 
-**Destekleyen:** HAVELSAN SUIT Programı
+
 
 ---
 
@@ -57,20 +57,20 @@ Mevcut yazılım 10 komutu sınıflandırıp iletir:
 | 9 | Sağa hareket (Move right) | Sağa yanal hareket |
 | 10 | Sola hareket (Move left) | Sola yanal hareket |
 
-Yol haritasında bu küme 15'e çıkarılacak (etrafı kontrol et, dağıl, çök, etraf temiz, operasyon bitti).
+
 
 ---
 
 ## Sistem Mimarisi
 
 ```
-┌────────────────── ELDİVEN BİRİMİ ──────────────────┐         ┌──────────── ALICI BİRİM ────────────┐
+┌────────────────── ELDİVEN BİRİMİ ──────────────────┐         ┌──────────── ALICI BİRİM ──────────────┐
 │                                                    │         │                                       │
-│   5× Flex sensör ──┐                               │         │   ESP32 ──── DFPlayer Mini ─── Hoparlör│
-│                    ├─► ESP32-S3 ──► TFLite         │ ESP-NOW │     │                                  │
-│   MPU6050 (IMU) ───┘    (Edge Impulse modeli)      │ ───────►│     ├─── 16×2 I²C LCD (durum)         │
-│                                                    │ 2.4 GHz │     ├─── Potansiyometre (ses)         │
-│   Buton ─► durum makinesi                          │         │     └─── Pil voltaj bölücü            │
+│   5× Flex sensör ──┐                               │         │  ESP32 ──── DFPlayer Mini ─── Hoparlör│
+│                    ├─► ESP32-S3 ──► TFLite         │ ESP-NOW │    │                                  │
+│   MPU6050 (IMU) ───┘    (Edge Impulse modeli)      │ ───────►│    ├─── 16×2 I²C LCD (durum)          │
+│                                                    │ 2.4 GHz │    ├─── Potansiyometre (ses)          │
+│   Buton ─► durum makinesi                          │         │    └─── Pil voltaj bölücü             │
 │   RGB LED ─► görsel geri bildirim                  │         │                                       │
 │                                                    │         │                                       │
 └────────────────────────────────────────────────────┘         └───────────────────────────────────────┘
@@ -78,7 +78,7 @@ Yol haritasında bu küme 15'e çıkarılacak (etrafı kontrol et, dağıl, çö
 
 ### Veri akışı
 
-1. Kullanıcı ~3 saniye boyunca bir el pozisyonunu tutar (örnekleme penceresi Edge Impulse impulse ayarlarına göre belirlenir).
+1. Kullanıcı ~3 saniye boyunca bir el hareketi yapar (örnekleme penceresi Edge Impulse impulse ayarlarına göre belirlenir).
 2. Eldiven her zaman adımı için 13 özellik örnekler: 5 normalize flex değeri, Kalman filtrelenmiş pitch ve roll, 3 eksen ivmeölçer (kalibre), 3 eksen jiroskop (kalibre).
 3. TFLite Micro sınıflandırıcısı cihaz üzerinde çalışır ve güven skoruyla birlikte bir etiket çıkarır.
 4. Güven skoru ≥ %75 ise, etiket bir komut ID'sine (1–10) eşlenir ve ESP-NOW üzerinden yayınlanır.
@@ -91,15 +91,15 @@ Yol haritasında bu küme 15'e çıkarılacak (etrafı kontrol et, dağıl, çö
 ### Eldiven birimi
 | Bileşen | Görev | Pin / Bus |
 |---|---|---|
-| ESP32-S3 DevKit | Ana MCU, cihaz üstü çıkarım | — |
+| ESP32 DevKit | Ana MCU, cihaz üstü çıkarım | — |
 | 5× flex sensör | Parmak bükülmesi (voltaj bölücü) | GPIO 25, 33, 32, 35, 34 |
 | MPU6050 | 3 eksen ivme + 3 eksen jiroskop | I²C: SDA=21, SCL=22 |
 | Buton | Durum geçişleri | GPIO 13 (INPUT_PULLUP) |
 | RGB LED | Görsel geri bildirim | R=15, G=2, B=0 |
 | Pil ölçer | Voltaj bölücü (R1=20 k, R2=10 k) | GPIO 39 |
-| Li-Po + TP4056 + HT7333 | Güç zinciri | — |
+| 9V alkalin pil | Güç kaynağı | — |
 
-> ⚠️ **GPIO 0 uyarısı:** Mavi kanal, ESP32'nin boot-mode seçim pini olan GPIO 0'ı kullanıyor. Açılış sırasında LOW'a çekilmesi çipi indirme moduna alır — bu yüzden açılışta LED kapalı tutulmalı veya pull-up uygulanmalı.
+
 
 ### Alıcı birim
 | Bileşen | Görev | Pin / Bus |
@@ -148,7 +148,7 @@ Yol haritasında bu küme 15'e çıkarılacak (etrafı kontrol et, dağıl, çö
 - **Güven eşiği:** %75 altındaki tahminler atılır
 - **Kalibrasyon:** Her oturum için flex sensörlerin normalize edilmesi + IMU offset tahmini (kullanıcılar arasında modeli yeniden eğitmeye gerek yok)
 
-> **Özellik tasarımına dair not:** Yazılım, pencerelenmiş zaman serisi özelliklerini doğrudan Edge Impulse'a besler; Edge Impulse kendi DSP bloğunu (IMU kanalları üzerinde spektral analiz) uygular. Bu yaklaşım, daha önceki istatistiksel özellik çıkarımının (88 özellik = 11 kanal × 8 istatistik) yerine geçer ve en uygun özellik çıkarıcının Edge Impulse tarafından seçilmesine imkân tanır.
+
 
 ---
 
@@ -190,7 +190,7 @@ Hareketin bitişinden ses oynatımına kadar geçen toplam gecikme tipik olarak 
 │   └── ei-ilter-akke_1.3.3-arduino-1.0.5-impulse.zip   # dışa aktarılmış Edge Impulse Arduino kütüphanesi
 │
 ├── inference/
-│   └── inference.ino                      # eldiven tarafı yazılımı (ESP32-S3)
+│   └── inference.ino                      # eldiven tarafı yazılımı (ESP32)
 │
 └── reciever/
     └── reciever.ino                       # alıcı tarafı yazılımı (ESP32 + DFPlayer)
@@ -224,7 +224,7 @@ Hareketin bitişinden ses oynatımına kadar geçen toplam gecikme tipik olarak 
 1. **SD kartı hazırla:** DFPlayer'ın microSD'sinde `mp3` klasörü oluştur ve 10 komuta karşılık gelen `0001.mp3` … `0010.mp3` dosyalarını ekle.
 2. **Alıcıyı yükle** (`reciever.ino`) — önce alıcı ESP32'ye.
 3. **MAC adresini oku:** 115200 baud'da seri monitörden alıcının MAC adresini al ve `inference.ino` içindeki `receiverMAC[]` dizisine yapıştır.
-4. **Eldiveni yükle** (`inference.ino`) — ESP32-S3'e.
+4. **Eldiveni yükle** (`inference.ino`) — ESP32'ye.
 5. **Her iki birimi de aç**, açılış sekansını bekle, ardından eldiven üzerindeki butona basarak kalibrasyona başla.
 
 ---
@@ -233,7 +233,7 @@ Hareketin bitişinden ses oynatımına kadar geçen toplam gecikme tipik olarak 
 
 `inference.ino` içinde paketlenen model, `data_collection/` altındaki betiklerle toplanan verilerle eğitildi. Hareket kümesini genişletmek veya yeni bir kullanıcıya göre yeniden eğitmek için:
 
-1. **Veri toplama yazılımını yükle:** `data_collection/data_collection.ino` dosyasını açıp eldiven ESP32-S3'e yükle.
+1. **Veri toplama yazılımını yükle:** `data_collection/data_collection.ino` dosyasını açıp eldiven ESP32'ye yükle.
 2. **Host taraflı toplayıcıyı çalıştır:** eldiveni bilgisayara bağla ve şu komutu çalıştır:
    ```bash
    python data_collection/data_collector.py
@@ -264,15 +264,7 @@ Hareketin bitişinden ses oynatımına kadar geçen toplam gecikme tipik olarak 
 
 ---
 
-## Bilinen Sorunlar / Yapılacaklar
 
-- Alıcı yazılımındaki `Serial.println` çağrılarında UTF-8 olmayan bayt dizileri var (orijinalde emoji); bunlar terminalde bozuk karakter olarak görünüyor. Temizlenmeli veya yeniden kodlanmalı.
-- `getBatteryPercentage()` fonksiyonu `updateLCD()` içinde, tanımlanmadan önce kullanılıyor — Arduino'nun otomatik prototip üretimi sayesinde çalışıyor ama taşınabilirlik için açıkça forward-declare edilmeli.
-- `BUTTON_PIN = 13` ve `BATTERY_PIN = 39` ESP32-S3'te hassas olabiliyor; pin haritası kullandığın dev board sürümüne göre doğrulanmalı.
-- Pil yüzdesi eğrisi %5'lik adımlarda lineer hesaplanıyor; gerçek Li-Po deşarj eğrisine eşlenmiş bir LUT eklenebilir.
-- Eldiven tarafındaki `checkBattery()` `loop()` içinde şu anda yorum satırı olarak duruyor.
-
----
 
 ## Yol Haritası
 
@@ -286,16 +278,11 @@ Hareketin bitişinden ses oynatımına kadar geçen toplam gecikme tipik olarak 
 
 ## Teşekkürler
 
-- **HAVELSAN SUIT Programı** — mentorluk ve teknik destek için
-- **TED Üniversitesi Mühendislik Fakültesi** — bitirme danışmanlığı ve laboratuvar imkânları
+- **TED Üniversitesi Mühendislik Fakültesi** — bitirme danışmanlığı
 - Edge Impulse, Espressif ve açık kaynak gömülü topluluğu
 
 ---
 
-## Lisans
 
-Henüz belirlenmedi. `LICENSE` dosyası (beklemede).
-
----
 
 <sub>AKKE © 2025–2026 — CMPE 491/492 Bitirme Projesi, TED Üniversitesi</sub>
