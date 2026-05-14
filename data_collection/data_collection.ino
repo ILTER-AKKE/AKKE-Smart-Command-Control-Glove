@@ -35,7 +35,7 @@ float cal_close[5] = {0};
 float acc_offset[3] = {0};
 float gyro_offset[3] = {0};
 
-// DURUM (STATE) TANIMLARI
+// STATE STATUS
 enum State {
   IDLE,
   CALIBRATING,
@@ -118,12 +118,12 @@ void setup() {
   i2cData[2] = 0x00; // Gyro +-250 deg/s
   i2cData[3] = 0x00; // Accel +-2g
   
-  while (i2cWrite(0x19, i2cData, 4, false)); // Parametreleri yaz
+  while (i2cWrite(0x19, i2cData, 4, false)); // Parameters setting
   while (i2cWrite(0x6B, 0x01, true));        // Wake up MPU
   
   delay(100);
 
-  Serial.println("MSG: Sistem Baslatildi (I2C Manual). Kalibrasyon icin Butona Basin.");
+  Serial.println("MSG: System Started (I2C Manual). Press the button for calibration.");
   
   setLED(0, 0, 1); // IDLE - Mavi
 }
@@ -142,11 +142,11 @@ bool isButtonPressed() {
 }
 
 void runCalibration() {
-  // 1. AÇIK EL (SARI IŞIK)
-  Serial.println("MSG: Lutfen elinizi TUMUYLE ACIK (DUZ) tutun! (2 sn bekleyin)");
+  // 1. OPEN HAND (SARI LIGHT)
+  Serial.println("MSG: Please keep your hand FULLY OPEN (FLAT)! (wait 2 sec)");
   setLED(1, 1, 0); // SARI
   delay(2500); 
-  Serial.println("MSG: Acik el degerleri okunuyor...");
+  Serial.println("MSG: Open hand values are being read...");
   
   long f_sum[5] = {0,0,0,0,0};
   for(int i=0; i<20; i++) {
@@ -155,11 +155,11 @@ void runCalibration() {
   }
   for(int j=0; j<5; j++) cal_open[j] = f_sum[j] / 20.0;
   
-  // 2. KAPALI EL (KIRMIZI IŞIK)
-  Serial.println("MSG: Lutfen elinizi TUMUYLE KAPATIN (YUMRUK)! (2 sn bekleyin)");
-  setLED(1, 0, 0); // TURUNCU/KIRMIZI
+  // 2. CLOSED HAND (RED LIGHT)
+  Serial.println("MSG: Please keep your hand FULLY CLOSED (FIST)! (wait 2 sec)");
+  setLED(1, 0, 0); // RED
   delay(2500);
-  Serial.println("MSG: Kapali el degerleri okunuyor...");
+  Serial.println("MSG: Closed hand values are being read...");
   
   for(int j=0; j<5; j++) f_sum[j] = 0;
   for(int i=0; i<20; i++) {
@@ -168,9 +168,9 @@ void runCalibration() {
   }
   for(int j=0; j<5; j++) cal_close[j] = f_sum[j] / 20.0;
 
-  // 3. MPU6050 OFFSET KALİBRASYON (MOR IŞIK)
-  Serial.println("MSG: Lutfen elinizi SABIT TUTUN! (Gyro/Accel kalibre ediliyor)");
-  setLED(1, 0, 1); // MOR
+  // 3. MPU6050 OFFSET CALİBRASYON (PURPLE LIGHT)
+  Serial.println("MSG: Please keep your hand STILL! (Gyro/Accel calibration)");
+  setLED(1, 0, 1); // PURPLE
   delay(2500);
   
   float a_sum[3] = {0};
@@ -178,7 +178,7 @@ void runCalibration() {
   int mpu_count = 50;
   
   for(int i=0; i<mpu_count; i++) {
-    while (i2cRead(0x3B, i2cData, 14)); // Okuma basarili olana kadar bekle
+    while (i2cRead(0x3B, i2cData, 14)); // Wait until the reading is successful
     int16_t accX = (i2cData[0] << 8) | i2cData[1];
     int16_t accY = (i2cData[2] << 8) | i2cData[3];
     int16_t accZ = (i2cData[4] << 8) | i2cData[5];
@@ -188,7 +188,7 @@ void runCalibration() {
     
     a_sum[0] += accX;
     a_sum[1] += accY;
-    a_sum[2] += accZ - 16384.0; // +-2g icin 1G degeri (Z ekseni kaldir)
+    a_sum[2] += accZ - 16384.0; // +-2g for 1G value (Z axis remove)
     g_sum[0] += gyroX;
     g_sum[1] += gyroY;
     g_sum[2] += gyroZ;
@@ -214,8 +214,8 @@ void runCalibration() {
   kalmanY.setAngle(pitch);
   timer = micros();
 
-  Serial.println("MSG: KALIBRASYON TAMAMLANDI! (Hazir)");
-  Serial.println("MSG: Yeni kayit icin butona basin.");
+  Serial.println("MSG: CALIBRATION COMPLETED! (Ready)");
+  Serial.println("MSG: Press the button for a new recording.");
 }
 
 void recordData3Sec() {
@@ -227,7 +227,7 @@ void recordData3Sec() {
   while(millis() - startT < 3000) {
     unsigned long loopStart = millis();
     
-    // Flex okuma (Eski mantik)
+    // Flex reading
     float flex_norm[5];
     for(int i=0; i<5; i++) {
       float raw = analogRead(flexPins[i]);
@@ -241,8 +241,8 @@ void recordData3Sec() {
       }
     }
     
-    // MPU okuma (Raw I2C)
-    while (i2cRead(0x3B, i2cData, 14)); // veriyi cek
+    // MPU reading (Raw I2C)
+    while (i2cRead(0x3B, i2cData, 14)); // pull the data
     double accX = (int16_t)((i2cData[0] << 8) | i2cData[1]);
     double accY = (int16_t)((i2cData[2] << 8) | i2cData[3]);
     double accZ = (int16_t)((i2cData[4] << 8) | i2cData[5]);
@@ -250,7 +250,7 @@ void recordData3Sec() {
     double gyroY = (int16_t)((i2cData[10] << 8) | i2cData[11]);
     double gyroZ = (int16_t)((i2cData[12] << 8) | i2cData[13]);
     
-    // Kalman hesaplama
+    // Kalman calculation
     double dt = (double)(micros() - timer) / 1000000.0;
     timer = micros();
     
@@ -270,7 +270,7 @@ void recordData3Sec() {
     float f_gy = gyroY - gyro_offset[1];
     float f_gz = gyroZ - gyro_offset[2];
     
-    // YAZDIR
+    // PRINT
     Serial.print("DATA,");
     for(int i=0; i<5; i++) { Serial.print(flex_norm[i], 3); Serial.print(","); }
     Serial.print(kalPitch, 2); Serial.print(",");
@@ -283,7 +283,7 @@ void recordData3Sec() {
     Serial.print(f_gz, 2);
     Serial.println();
     
-    // 50Hz sagla (20ms loop time)
+    // 50Hz provide (20ms loop time)
     unsigned long loopEnd = millis();
     if(loopEnd - loopStart < 20) {
       delay(20 - (loopEnd - loopStart));
@@ -291,8 +291,8 @@ void recordData3Sec() {
   }
   
   Serial.println("END_RECORD");
-  Serial.println("MSG: Kayit tamam. Yeni kayit icin butona basin.");
-  setLED(0, 1, 0); // YESIL
+  Serial.println("MSG: Recording completed. Press the button for a new recording.");
+  setLED(0, 1, 0); // Green
 }
 
 void loop() {
@@ -304,7 +304,7 @@ void loop() {
         currentState = CALIBRATING;
         runCalibration();
         currentState = READY;
-        setLED(0, 1, 0); // Yeşil
+        setLED(0, 1, 0); // Green
       }
       break;
 

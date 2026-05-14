@@ -4,33 +4,33 @@ from collections import Counter
 data_dir = "edge_impulse_data"
 
 if not os.path.exists(data_dir):
-    print(f"Hata: '{data_dir}' klasörü bulunamadı!")
+    print(f"Error: '{data_dir}' folder not found!")
     exit()
 
 label_counts = Counter()
 
-# Klasördeki dosyaları oku
+# Read files in the folder
 for filename in os.listdir(data_dir):
     if filename.endswith(".csv"):
-        # Dosya isimleri genelde "Hareket_X.timestamp.csv" formatında
+        # File names are generally in the "Hareket_X.timestamp.csv" format
         parts = filename.split(".")
         if len(parts) >= 2:
             label = parts[0]
             label_counts[label] += 1
 
-# Sonuçları ekrana yazdır
+# Print results to the screen
 print("==================================================")
-print("   Edge Impulse Klasörü Etiket (Label) Sayıları   ")
+print("   Edge Impulse Folder Label (Label) Counts   ")
 print("==================================================")
 
 if not label_counts:
-    print("Klasörde hiç CSV dosyası bulunamadı.")
+    print("No CSV file found in the folder.")
 else:
-    # Sayıları hareket numarasına göre sıralayarak yazdır (mümkünse)
-    # Etiket isminden rakamı çıkarmaya çalışıp sıralıyoruz
+    # Print the numbers in the order of the move number (if possible)
+    # Try to extract the number from the label name and sort numerically
     def sort_key(x):
         label = x[0]
-        # "Hareket_10" gibi isimlerden sadece sayıyı alıp sayısal sıralama yapalım
+        # "Hareket_10" like names, extract only the number and sort numerically
         if "_" in label:
             num = label.split("_")[-1]
             if num.isdigit():
@@ -42,5 +42,5 @@ else:
 
 print("--------------------------------------------------")
 total = sum(label_counts.values())
-print(f"Toplam CSV Sayısı : {total}")
+print(f"Total CSV Number : {total}")
 print("==================================================")

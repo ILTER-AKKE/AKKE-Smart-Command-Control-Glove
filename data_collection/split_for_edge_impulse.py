@@ -6,37 +6,35 @@ def main():
     output_dir = "edge_impulse_data"
     
     if not os.path.exists(input_file):
-        print(f"Hata: {input_file} bulunamadi.")
+        print(f"Error: {input_file} not found.")
         return
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    print(f"{input_file} okunuyor ve Edge Impulse formatina (ayri dosyalara) bolunuyor...")
+    print(f"{input_file} reading and splitting into individual files for Edge Impulse format...")
 
     with open(input_file, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         header = next(reader)
         
-        # Indisleri bulalim
-        # Beklenen: record_id,timestamp_ms,label,flex_1,flex_2,...
+        # Expected: record_id,timestamp_ms,label,flex_1,flex_2,...
         try:
             record_id_idx = header.index("record_id")
             timestamp_idx = header.index("timestamp_ms")
             label_idx = header.index("label")
         except ValueError:
-            print("Hata: Gerekli basliklar (record_id, timestamp_ms, label) bulunamadi.")
+            print("Error: Required headers (record_id, timestamp_ms, label) not found.")
             return
 
-        # Feature isimlerini cikar (ilk 3 sutun haric)
+        # Feature names
         feature_names = header[3:]
-        # Yeni baslik: timestamp, feature1, feature2...
         out_header = ["timestamp"] + feature_names
 
         records = {}
         for row in reader:
             if not row or len(row) < len(header): 
-                continue # bos veya eksik satirlari atla
+                continue # skip empty or incomplete rows
             
             rec_id = row[record_id_idx]
             lbl = row[label_idx]
@@ -50,19 +48,19 @@ def main():
                     "rows": []
                 }
             
-            # timestamp 0'dan baslasin diye relative yapiyoruz
+            # Relative timestamp
             rel_ts = ts - records[rec_id]["start_ts"]
             out_row = [rel_ts] + features
             records[rec_id]["rows"].append(out_row)
 
-    # Simdi klasore yazdiriyoruz
-    # Dosya adlandirmasi: Label.RecordID.csv (Ornek: 1.1776358307862.csv)
-    # Edge impulse "Infer from filename" secersek "1" kismini otomatik etiket sayar!
+    # Writing to folder
+    # File naming: Label.RecordID.csv (Example: 1.1776358307862.csv)
+    # If Edge impulse "Infer from filename" is selected, it will automatically label "1"!
     
     file_count = 0
     for rec_id, data in records.items():
         lbl = data["label"]
-        # Edge impulse icin dosya ismi formulu: etiketismi.benzersizID.csv
+        # File name formula for Edge Impulse: tagName.uniqueID.csv
         out_filename = f"Hareket_{lbl}.{rec_id}.csv"
         out_path = os.path.join(output_dir, out_filename)
         
@@ -73,8 +71,8 @@ def main():
             
         file_count += 1
 
-    print(f"ISLEM TAMAM! Toplam {file_count} farkli hareket dosyasi '{output_dir}' klasorune cikarildi.")
-    print("Edge Impulse sitesine bu klasorun ICINDEKI tum dosyalari secerek yukleyebilirsiniz.")
+    print(f"DONE! {file_count} different movement files extracted to '{output_dir}' folder.")
+    print("You can upload all files inside this folder to Edge Impulse site.")
 
 if __name__ == "__main__":
     main()

@@ -40,7 +40,6 @@ float acc_offset[3]  = {0};
 float gyro_offset[3] = {0};
 
 // ==================== ESP-NOW ====================
-// Receiver kartinin MAC adresini buraya yaz
 uint8_t receiverMAC[] = {0x08, 0xA6, 0xF7, 0x47, 0x5C, 0x3C};
 
 typedef struct {
@@ -49,7 +48,7 @@ typedef struct {
 
 SendData sendData;
 
-// ==================== DURUM (STATE) TANIMLARI ====================
+// ==================== STATE ====================
 enum State {
   IDLE,
   CALIBRATING,
@@ -70,9 +69,9 @@ bool isBatteryLowState = false;
 
 void checkBattery() {
   int raw = analogRead(BATTERY_PIN);
-  float vOut = (raw / 4095.0) * 3.3; // ESP32 ADC referansı ~3.3V
+  float vOut = (raw / 4095.0) * 3.3; // ESP32 ADC reference ~3.3V
   
-  // Voltaj bölücü: R1 = 20k, R2 = 10k
+  // Voltage divider: R1 = 20k, R2 = 10k
   float vBat = vOut * 3.0;
 
   float maxVoltage = 9.5;
@@ -87,13 +86,13 @@ void checkBattery() {
     percent = (int)(((vBat - minVoltage) / (maxVoltage - minVoltage)) * 100.0);
   }
 
-  // Sorunu görebilmek için Serial Monitor'e voltaj değerlerini yazdıralım
-  Serial.print("Pil Test -> RAW: "); Serial.print(raw);
+  // To see the problem, let's print the voltage values to the Serial Monitor
+  Serial.print("Battery Test -> RAW: "); Serial.print(raw);
   Serial.print(" | vOut (Pin): "); Serial.print(vOut);
-  Serial.print("V | vBat (Gercek): "); Serial.print(vBat);
-  Serial.print("V | Yuzde: %"); Serial.println(percent);
+  Serial.print("V | vBat (Real): "); Serial.print(vBat);
+  Serial.print("V | Percentage: %"); Serial.println(percent);
 
-  // Batarya voltajı sınırın altındaysa düşük pil moduna geç
+  // If the battery voltage is below the limit, switch to low battery mode
   if (vBat < minVoltage) {
     isBatteryLowState = true;
   } else {
@@ -149,8 +148,8 @@ void setLED(bool r, bool g, bool b) {
 
 // ==================== ESP-NOW ====================
 void OnDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
-  Serial.print("ESP-NOW gonderim: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "BASARILI" : "BASARISIZ");
+  Serial.print("ESP-NOW send status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAILED");
 }
 
 void initEspNowSender() {
@@ -162,7 +161,7 @@ void initEspNowSender() {
   Serial.println(WiFi.macAddress());
 
   if (esp_now_init() != ESP_OK) {
-    Serial.println("HATA: ESP-NOW baslatilamadi!");
+    Serial.println("ERROR: ESP-NOW initialization failed!");
     while (true) delay(1000);
   }
 
@@ -176,34 +175,33 @@ void initEspNowSender() {
 
   esp_err_t result = esp_now_add_peer(&peerInfo);
   if (result != ESP_OK && result != ESP_ERR_ESPNOW_EXIST) {
-    Serial.print("HATA: Peer eklenemedi, kod = ");
+    Serial.print("ERROR: Peer could not be added, code = ");
     Serial.println(result);
     while (true) delay(1000);
   }
 
-  Serial.println("ESP-NOW sender hazir.");
+  Serial.println("ESP-NOW sender is ready.");
 }
 
-// Burada kendi model label isimlerine gore eslestirme yapiyoruz.
-// Asagida birden fazla olasi isim ekledim. Gerekiyorsa sadeleştiririz.
+// Labeled data comparison
 uint8_t labelToCommand(const char* label) {
-  if (strcmp(label, "hareket_1") == 0 || strcmp(label, "Hareket_1") == 0 || strcmp(label, "stop") == 0 || strcmp(label, "Stop") == 0) return 1;
-  if (strcmp(label, "hareket_2") == 0 || strcmp(label, "Hareket_2") == 0 || strcmp(label, "listen") == 0 || strcmp(label, "Listen") == 0) return 2;
-  if (strcmp(label, "hareket_3") == 0 || strcmp(label, "Hareket_3") == 0 || strcmp(label, "come") == 0 || strcmp(label, "Come") == 0) return 3;
-  if (strcmp(label, "hareket_4") == 0 || strcmp(label, "Hareket_4") == 0 || strcmp(label, "stick_together") == 0 || strcmp(label, "Stick_together") == 0 || strcmp(label, "Stick together") == 0) return 4;
-  if (strcmp(label, "hareket_5") == 0 || strcmp(label, "Hareket_5") == 0 || strcmp(label, "go_go") == 0 || strcmp(label, "Go_go") == 0 || strcmp(label, "Go go") == 0) return 5;
-  if (strcmp(label, "hareket_6") == 0 || strcmp(label, "Hareket_6") == 0 || strcmp(label, "slow_down") == 0 || strcmp(label, "Slow_down") == 0 || strcmp(label, "Slow down") == 0) return 6;
-  if (strcmp(label, "hareket_7") == 0 || strcmp(label, "Hareket_7") == 0 || strcmp(label, "fall_back") == 0 || strcmp(label, "Fall_back") == 0 || strcmp(label, "Fall back") == 0) return 7;
-  if (strcmp(label, "hareket_8") == 0 || strcmp(label, "Hareket_8") == 0 || strcmp(label, "take_cover") == 0 || strcmp(label, "Take_cover") == 0 || strcmp(label, "Take cover") == 0) return 8;
-  if (strcmp(label, "hareket_9") == 0 || strcmp(label, "Hareket_9") == 0 || strcmp(label, "move_right") == 0 || strcmp(label, "Move_right") == 0 || strcmp(label, "Move right") == 0) return 9;
-  if (strcmp(label, "hareket_10") == 0 || strcmp(label, "Hareket_10") == 0 || strcmp(label, "move_left") == 0 || strcmp(label, "Move_left") == 0 || strcmp(label, "Move left") == 0) return 10;
+  if (strcmp(label, "Hareket_1") == 0) return 1;
+  if (strcmp(label, "Hareket_2") == 0) return 2;
+  if (strcmp(label, "Hareket_3") == 0) return 3;
+  if (strcmp(label, "Hareket_4") == 0) return 4;
+  if (strcmp(label, "Hareket_5") == 0) return 5;
+  if (strcmp(label, "Hareket_6") == 0) return 6;
+  if (strcmp(label, "Hareket_7") == 0) return 7;
+  if (strcmp(label, "Hareket_8") == 0) return 8;
+  if (strcmp(label, "Hareket_9") == 0) return 9;
+  if (strcmp(label, "Hareket_10") == 0) return 10;
 
   return 0;
 }
 
 void sendCommandToReceiver(uint8_t cmd) {
   if (cmd < 1 || cmd > 10) {
-    Serial.println("Gecersiz komut, gonderilmiyor.");
+    Serial.println("Invalid command, not sent.");
     return;
   }
 
@@ -211,14 +209,14 @@ void sendCommandToReceiver(uint8_t cmd) {
 
   esp_err_t result = esp_now_send(receiverMAC, (uint8_t*)&sendData, sizeof(sendData));
 
-  Serial.print("Receiver'a gonderilen komut: ");
+  Serial.print("Command sent to receiver: ");
   Serial.print(cmd);
   Serial.print(" -> ");
 
   if (result == ESP_OK) {
-    Serial.println("paket gonderildi");
+    Serial.println("packet sent");
   } else {
-    Serial.print("gonderim hatasi: ");
+    Serial.print("send error: ");
     Serial.println(result);
   }
 }
@@ -249,7 +247,7 @@ void setup() {
   while (i2cWrite(0x6B, 0x01, true));
   delay(100);
 
-  Serial.println("========== EI SINIFLANDIRICI SABITLERI ==========");
+  Serial.println("========== EI CLASSIFIER CONSTANTS ==========");
   Serial.print("EI_CLASSIFIER_FREQUENCY            : "); Serial.println(EI_CLASSIFIER_FREQUENCY);
   Serial.print("EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE : "); Serial.println(EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
   Serial.print("EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME: "); Serial.println(EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
@@ -257,7 +255,7 @@ void setup() {
   Serial.print("EI_CLASSIFIER_LABEL_COUNT          : "); Serial.println(EI_CLASSIFIER_LABEL_COUNT);
   Serial.println("=================================================");
 
-  Serial.println("MSG: Sistem baslatildi. Kalibrasyon icin butona basin.");
+  Serial.println("MSG: System started. Press button for calibration.");
   
   // Booting: Blinking White
   for (int i = 0; i < 3; i++) {
@@ -267,7 +265,7 @@ void setup() {
     delay(200);
   }
   
-  setLED(0, 0, 1); // Mavi → IDLE
+  setLED(0, 0, 1); // Blue → IDLE
 }
 
 // ==================== BUTON DEBOUNCE ====================
@@ -284,10 +282,10 @@ bool isButtonPressed() {
   return pressed;
 }
 
-// ==================== KALİBRASYON ====================
+// ==================== Calibration ====================
 void runCalibration() {
-  Serial.println("MSG: Elinizi TUMUYLE ACIK (DUZ) tutun! (2.5 sn)");
-  setLED(1, 1, 0); // Sari
+  Serial.println("MSG: Keep your hand FULLY OPEN (STRAIGHT)! (2.5 sn)");
+  setLED(1, 1, 0); // Yellow
   delay(2500);
 
   long f_sum[5] = {0};
@@ -297,8 +295,8 @@ void runCalibration() {
   }
   for (int j = 0; j < 5; j++) cal_open[j] = f_sum[j] / 20.0f;
 
-  Serial.println("MSG: Elinizi TUMUYLE KAPATIN (YUMRUK)! (2.5 sn)");
-  setLED(1, 0, 0); // Kirmizi
+  Serial.println("MSG: Keep your hand FULLY CLOSED (FIST)! (2.5 sn)");
+  setLED(1, 0, 0); // Red
   delay(2500);
 
   for (int j = 0; j < 5; j++) f_sum[j] = 0;
@@ -308,8 +306,8 @@ void runCalibration() {
   }
   for (int j = 0; j < 5; j++) cal_close[j] = f_sum[j] / 20.0f;
 
-  Serial.println("MSG: Elinizi SABIT TUTUN (Gyro/Accel kalibre ediliyor)...");
-  setLED(1, 0, 1); // Mor
+  Serial.println("MSG: Keep your hand STEADY (Gyro/Accel calibrating)...");
+  setLED(1, 0, 1); // Purple
   delay(2500);
 
   float a_sum[3] = {0};
@@ -339,25 +337,25 @@ void runCalibration() {
   kalmanY.setAngle(atan(-aX / sqrt(aY * aY + aZ * aZ)) * RAD_TO_DEG);
   timer = micros();
 
-  Serial.println("MSG: KALIBRASYON TAMAMLANDI! Tahmin icin butona basin.");
+  Serial.println("MSG: CALIBRATION COMPLETED! Press the button to start.");
 }
 
 // ==================== INFERENCE ====================
 void performInference() {
-  Serial.println("MSG: HAREKETI YAPIN! (Veri toplaniyor...)");
+  Serial.println("MSG: MAKE THE MOVE! (Data collection...)");
   setLED(1, 1, 0); // Processing -> Solid Yellow (from image)
 
   const int num_sensors        = EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME;
   const int num_readings       = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
   const uint32_t sample_interval_ms = (uint32_t)(1000.0f / EI_CLASSIFIER_FREQUENCY);
 
-  Serial.print("MSG: Toplanacak ornek sayisi: "); Serial.println(num_readings);
-  Serial.print("MSG: Ornek araligi (ms): ");      Serial.println(sample_interval_ms);
+  Serial.print("MSG: Number of samples to collect: "); Serial.println(num_readings);
+  Serial.print("MSG: Sample interval (ms): ");      Serial.println(sample_interval_ms);
 
   for (int ix = 0; ix < num_readings; ix++) {
     unsigned long loopStart = millis();
 
-    // 1. Flex sensör okuma & normalizasyon
+    // 1. Flex sensor reading & normalization
     float flex_norm[5];
     for (int i = 0; i < 5; i++) {
       float raw  = analogRead(flexPins[i]);
@@ -369,7 +367,7 @@ void performInference() {
       }
     }
 
-    // 2. MPU-6050 okuma
+    // 2. MPU-6050 reading
     while (i2cRead(0x3B, i2cData, 14));
     double accX  = (int16_t)((i2cData[0]  << 8) | i2cData[1]);
     double accY  = (int16_t)((i2cData[2]  << 8) | i2cData[3]);
@@ -415,12 +413,12 @@ void performInference() {
   }
 
   // ==================== INFERENCE ====================
-  Serial.println("MSG: Model calistiriliyor...");
+  Serial.println("MSG: Model inferencing...");
 
   signal_t signal;
   int err = numpy::signal_from_buffer(features, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, &signal);
   if (err != 0) {
-    ei_printf("HATA: Sinyal olusturulamadi (kod: %d)\n", err);
+    ei_printf("ERROR: Signal generation failed (code: %d)\n", err);
     for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     return;
   }
@@ -428,14 +426,14 @@ void performInference() {
   ei_impulse_result_t result = {0};
   err = run_classifier(&signal, &result, false);
   if (err != EI_IMPULSE_OK) {
-    ei_printf("HATA: Model cikarim hatasi (kod: %d)\n", err);
+    ei_printf("ERROR: Model inference failed (code: %d)\n", err);
     for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     return;
   }
 
-  // ==================== SONUÇLARI YAZDIR ====================
+  // ==================== PRINT RESULTS ====================
   Serial.println("\n=========================================");
-  Serial.println("TAHMIN SONUCLARI:");
+  Serial.println("INFERENCE RESULTS:");
 
   float max_score  = 0.0f;
   const char* best_label = "?";
@@ -453,9 +451,9 @@ void performInference() {
   }
 
   Serial.println("-----------------------------------------");
-  Serial.print(">>> KARAR: ");
+  Serial.print(">>> DECISION: ");
   Serial.print(best_label);
-  Serial.print("  (Guven: %");
+  Serial.print("  (Confidence: %");
   Serial.print(max_score * 100.0f, 2);
   Serial.println(") <<<");
   Serial.println("=========================================\n");
@@ -471,13 +469,13 @@ void performInference() {
       delay(500);
       setLED(0, 0, 0);
     } else {
-      Serial.println("UYARI: Label komuta cevrilemedi, gonderim yapilmadi.");
+      Serial.println("WARNING: Label could not be converted to command, not sent.");
       // Error -> Blink Red (Twice)
       for(int i=0; i<2; i++){ setLED(1, 0, 0); delay(200); setLED(0, 0, 0); if(i<1) delay(200); }
     }
 
   } else {
-    Serial.println("UYARI: Guven esigi altinda (%75), sonuc gecersiz!");
+    Serial.println("WARNING: Confidence threshold below (75%), result invalid!");
     // Error / Low Confidence -> Blink Red (Twice)
     for(int i=0; i<2; i++){
       setLED(1, 0, 0);
@@ -490,7 +488,7 @@ void performInference() {
 
 // ==================== LOOP ====================
 void loop() {
-  // reciever.ino mantigi ile periyodik pil kontrolu
+  // Receiver.ino logic for periodic battery check
   if (millis() - lastBatteryMillis >= BATTERY_INTERVAL_MS) {
     lastBatteryMillis = millis();
     //checkBattery();
