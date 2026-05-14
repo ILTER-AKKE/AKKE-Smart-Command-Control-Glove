@@ -5,7 +5,7 @@
 🌐 **Diller:** [English](README.md) · **Türkçe**
 
 [![Durum](https://img.shields.io/badge/durum-aktif--geliştirme-blue)]()
-[![Platform](https://img.shields.io/badge/platform-ESP32--S3-informational)]()
+[![Platform](https://img.shields.io/badge/platform-ESP32--informational)]()
 [![Ders](https://img.shields.io/badge/TEDU-CMPE%20491%2F492-red)]()
 
 ---
