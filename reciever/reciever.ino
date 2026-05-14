@@ -7,32 +7,32 @@
 #include <esp_now.h>
 
 // ===================== PINS =====================
-static const int DF_RX_PIN = 16; // ESP32 RX  <- DFPlayer TX
-static const int DF_TX_PIN = 17; // ESP32 TX  -> DFPlayer RX
-static const int POT_PIN = 36;   // Pot middle pin (ADC1)
-static const int BATTERY_PIN = 34; // 'sp' pin (SVN) or change to correct ADC pin
+static const int DF_RX_PIN = 16; // ESP32 RX pin connected to DFPlayer TX
+static const int DF_TX_PIN = 17; // ESP32 TX pin connected to DFPlayer RX
+static const int POT_PIN = 36;   // ADC pin connected to the potentiometer middle pin
+static const int BATTERY_PIN = 35; // ADC pin connected to the battery voltage divider output
 
 // ===================== LCD =====================
-LiquidCrystal_I2C lcd(0x27, 16, 2); // Change to 0x3F if necessary
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Use 0x3F if the LCD module has a different I2C address
 
-// ===================== DFPLAYER =====================
-HardwareSerial FPSerial(1);
+// ===================== DFPLAYER CONFIGURATION =====================
+HardwareSerial FPSerial(1); // Hardware serial port used for DFPlayer communication
 DFRobotDFPlayerMini myDFPlayer;
 
-// ===================== SETTINGS =====================
-static const uint8_t MIN_CMD = 1;
-static const uint8_t MAX_CMD = 10;
-static const unsigned long POT_INTERVAL_MS = 120;
+// ===================== SYSTEM SETTINGS =====================
+static const uint8_t MIN_CMD = 1; // Minimum valid command number
+static const uint8_t MAX_CMD = 10; // Maximum valid command number
+static const unsigned long POT_INTERVAL_MS = 120; // Potentiometer reading interval
 
-// ESP-NOW data structure
+// Data packet structure received through ESP-NOW
 typedef struct {
   uint8_t fileNumber;
 } ReceiveData;
 
-// We will only set this in the callback
+// This variable is updated inside the ESP-NOW receive callback
 volatile uint8_t pendingCommand = 0;
 
-// State variables
+// Runtime state variables
 int currentVolume = -1;
 uint8_t currentCommand = 0;
 bool lcdNeedsUpdate = true;
@@ -83,7 +83,7 @@ void updateLCD() {
   if (batPct < 100)
     lcd.print(" ");
   if (batPct < 10)
-    lcd.print(" ");
+    lcd.print("  ");
   lcd.print(batPct);
   lcd.print("%");
 }
@@ -98,7 +98,7 @@ void applyVolumeFromPot() {
     currentVolume = newVolume;
     myDFPlayer.volume(currentVolume);
 
-    Serial.print("🔊 Volume level: ");
+    Serial.print("­şöè Volume level: ");
     Serial.println(currentVolume);
 
     lcdNeedsUpdate = true;
@@ -108,34 +108,52 @@ void applyVolumeFromPot() {
 // --------------------------------------------------
 int getBatteryPercentage() {
   int raw = analogRead(BATTERY_PIN);
-  float vOut = (raw / 4095.0) * 3.3; // ESP32 ADC reference is ~3.3V
 
-  // Voltage divider: R1 = 20k, R2 = 10k
-  // Vbat = Vout * ((R1 + R2) / R2) = Vout * ((20k + 10k) / 10k) = Vout * 3.0
+  // Convert the raw ADC value to the voltage measured at the ADC pin
+  float vOut = (raw / 4095.0) * 3.3;
+
+  // Estimate the actual battery voltage using the 20k-10k voltage divider ratio
+  // Vbat = Vout * ((20k + 10k) / 10k) = Vout * 3.0
   float vBat = vOut * 3.0;
 
-  // Assuming a 9V battery (9.5V max, 6.0V min)
-  float maxVoltage = 9.5;
-  float minVoltage = 6.0;
+  float maxVoltage = 9.0;  // Voltage considered as 100%
+  float minVoltage = 6.0;  // Voltage considered as 0%
 
-  if (vBat >= maxVoltage)
+  if (vBat >= maxVoltage) {
     return 100;
-  if (vBat <= minVoltage)
-    return 0;
+  }
 
-  return (int)(((vBat - minVoltage) / (maxVoltage - minVoltage)) * 100.0);
+  if (vBat <= minVoltage) {
+    return 0;
+  }
+
+  // Divide the battery voltage range into 20 steps
+  // Each step represents a 5% battery level change
+  int stepPercent = 5;
+  int numberOfSteps = 20;
+
+  float voltageStep = (maxVoltage - minVoltage) / numberOfSteps;
+
+  int stepIndex = (int)((vBat - minVoltage) / voltageStep);
+
+  int percentage = stepIndex * stepPercent;
+
+  if (percentage > 100) percentage = 100;
+  if (percentage < 0) percentage = 0;
+
+  return percentage;
 }
 
 // --------------------------------------------------
 void playCommand(uint8_t cmd) {
   currentCommand = cmd;
 
-  Serial.print("📩 Received command: ");
+  Serial.print("­şô® Received command: ");
   Serial.println(cmd);
 
-  Serial.print("🎵 Playing: mp3/");
-  // Zeros can be added to see the played file format more clearly in the
-  // terminal
+  Serial.print("­şÄÁ Playing: mp3/");
+
+  // Print the corresponding MP3 file name for debugging
   if (cmd < 10)
     Serial.print("000");
   else if (cmd < 100)
@@ -143,7 +161,7 @@ void playCommand(uint8_t cmd) {
   Serial.print(cmd);
   Serial.println(".mp3");
 
-  // INSTEAD OF myDFPlayer.play(cmd) WE USE THE FOLLOWING:
+// Play the command audio file from the MP3 folder
   myDFPlayer.playMp3Folder(cmd);
 
   lcdNeedsUpdate = true;
@@ -158,7 +176,7 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData,
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 #endif
   if (len != sizeof(ReceiveData)) {
-    Serial.println("⚠️ Wrong data size received");
+    Serial.println("ÔÜá´©Å Wrong data size received");
     return;
   }
 
@@ -168,7 +186,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (temp.fileNumber >= MIN_CMD && temp.fileNumber <= MAX_CMD) {
     pendingCommand = temp.fileNumber;
   } else {
-    Serial.print("⚠️ Invalid command: ");
+    Serial.print("ÔÜá´©Å Invalid command: ");
     Serial.println(temp.fileNumber);
   }
 }
@@ -202,7 +220,7 @@ void setup() {
   Serial.println("DFPlayer starting...");
 
   if (!myDFPlayer.begin(FPSerial, true, true)) {
-    Serial.println("❌ DFPlayer could not be started!");
+    Serial.println("ÔØî DFPlayer could not be started!");
     Serial.println("1) Check TX/RX connection");
     Serial.println("2) Check SD card");
     Serial.println("3) Check 5V and GND connection");
@@ -217,7 +235,7 @@ void setup() {
     }
   }
 
-  Serial.println("✅ DFPlayer ready");
+  Serial.println("Ô£à DFPlayer ready");
 
   myDFPlayer.setTimeOut(500);
   myDFPlayer.outputDevice(DFPLAYER_DEVICE_SD);
@@ -231,12 +249,12 @@ void setup() {
   WiFi.disconnect();
   delay(200);
 
-  Serial.print("📍 Receiver MAC Address: ");
+  Serial.print("­şôı Receiver MAC Address: ");
   Serial.println(WiFi.macAddress());
 
   // Start ESP-NOW
   if (esp_now_init() != ESP_OK) {
-    Serial.println("❌ ESP-NOW initialization error!");
+    Serial.println("ÔØî ESP-NOW initialization error!");
 
     lcd.clear();
     lcd.setCursor(0, 0);
@@ -248,8 +266,8 @@ void setup() {
 
   esp_now_register_recv_cb(OnDataRecv);
 
-  Serial.println("✅ ESP-NOW ready");
-  Serial.println("🎧 Waiting for command...");
+  Serial.println("Ô£à ESP-NOW ready");
+  Serial.println("­şÄğ Waiting for command...");
 
   currentCommand = 0;
   lcdNeedsUpdate = true;
@@ -258,13 +276,13 @@ void setup() {
 
 // --------------------------------------------------
 void loop() {
-  // 1) Volume adjustment with Pot
+  // 1) Read the potentiometer periodically and update the DFPlayer volume
   if (millis() - lastPotMillis >= POT_INTERVAL_MS) {
     lastPotMillis = millis();
     applyVolumeFromPot();
   }
 
-  // 2) Play the received command here
+  // 2) Process a newly received ESP-NOW command, if available
   if (pendingCommand != 0) {
     noInterrupts();
     uint8_t cmd = pendingCommand;
@@ -274,7 +292,7 @@ void loop() {
     playCommand(cmd);
   }
 
-  // 3) Update LCD periodically or when needed
+  // 3) Refresh the LCD periodically to update the battery level
   static unsigned long lastBatteryUpdate = 0;
   if (millis() - lastBatteryUpdate >= 10000) {
     lastBatteryUpdate = millis();
@@ -286,16 +304,16 @@ void loop() {
     updateLCD();
   }
 
-  // 4) DFPlayer status tracking
+  // 4) Check DFPlayer status messages and report playback or error events
   if (myDFPlayer.available()) {
     uint8_t type = myDFPlayer.readType();
     int value = myDFPlayer.read();
 
     if (type == DFPlayerPlayFinished) {
-      Serial.print("✅ File playback completed: ");
+      Serial.print("Ô£à File playback completed: ");
       Serial.println(value);
     } else if (type == DFPlayerError) {
-      Serial.print("⚠️ DFPlayer error code: ");
+      Serial.print("ÔÜá´©Å DFPlayer error code: ");
       Serial.println(value);
     }
   }
